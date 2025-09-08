@@ -1,7 +1,16 @@
-import express from 'express';
+import express from "express";
+import connectDatabase from "./config/db.js";
+
 const app = express();
 
-app.get('/', (req,res)=>{res.send('API is running')});
+// connect to MongoDB first
+connectDatabase();
 
-const PORT = 3000;
-app.listen(PORT, ()=> console.log(`Server started on http://localhost:${PORT}`));
+app.get("/", (req, res) => {
+  res.send("API is running");
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server started on http://localhost:${PORT}`);
+});
