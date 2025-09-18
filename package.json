@@ -1,6 +1,6 @@
 {
   "name": "jonathan-vang-161",
-  "type": "module",
+  "type": "commonjs",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -22,6 +22,7 @@
   "dependencies": {
     "config": "^4.1.1",
     "express": "^5.1.0",
+    "express-validator": "^7.2.1",
     "mongoose": "^8.18.0"
   },
   "devDependencies": {
