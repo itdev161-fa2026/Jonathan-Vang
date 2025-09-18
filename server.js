@@ -1,16 +1,13 @@
-import express from "express";
-import connectDatabase from "./config/db.js";
-
+// server.js
+const express = require('express');
 const app = express();
 
-// connect to MongoDB first
-connectDatabase();
+app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("API is running");
+app.post('/api/users', (req, res) => {
+  return res.status(200).json(req.body);
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server started on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`API running on ${PORT}`));
+
