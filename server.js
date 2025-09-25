@@ -1,25 +1,93 @@
-// server.js
-const { check, validationResult } = require('express-validator');
-const express = require('express');
+import express from 'express';
+import connectDatabase from './config/db.js';
+import { check, validationResult } from 'express-validator';
+import User from './models/User.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
 const app = express();
 
-app.use(express.json());
+connectDatabase();
 
-app.post(
-  '/api/users',
-  [
-    check('name').trim().notEmpty().withMessage('Name is required'),
-    check('email').isEmail().withMessage('Please include a valid email'),
-    check('password').isLength({ min: 6 }).withMessage('Password must be at least 6 chars'),
-  ],
-  (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      // bad input -> 422 + list of issues
-      return res.status(422).json({ errors: errors.array() });
-    }
-    // good input -> echo back (you’re not saving to DB yet)
-    return res.status(200).json(req.body);
+// body parser
+app.use(express.json({ extended: false }));
+
+// quick test route
+app.get('/', (req, res) => res.send('http get request sent to root api endpoint'));
+
+/**
+ * @route   POST /api/users
+ * @desc    Register user
+ */
+app.post('/api/users', [
+  check('name', 'Name is required').not().isEmpty(),
+  check('email', 'Please include a valid email').isEmail(),
+  check('password', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const { name, email, password } = req.body;
+
+  try {
+    // existing user?
+    let user = await User.findOne({ email: email.toLowerCase() });
+    if (user) return res.status(400).json({ errors: [{ msg: 'User with this email already exists' }] });
+
+    // create + hash
+    user = new User({ name, email: email.toLowerCase(), password });
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+
+    await user.save();
+
+    const payload = { user: { id: user.id } };
+
+    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
+      if (err) throw err;
+      res.json({ msg: 'User registered successfully', token });
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
   }
-);
+});
+
+/**
+ * @route   POST /api/auth
+ * @desc    Login user
+ */
+app.post('/api/auth', [
+  check('email', 'Please include a valid email').isEmail(),
+  check('password', 'Password is required').exists()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(400).json({ errors: [{ msg: 'Invalid credentials' }] });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ errors: [{ msg: 'Invalid credentials' }] });
+
+    const payload = { user: { id: user.id } };
+
+    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
+      if (err) throw err;
+      res.json({ msg: 'User logged in successfully', token });
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+app.listen(3000, () => console.log('Express server running on port 3000'));
+
 
